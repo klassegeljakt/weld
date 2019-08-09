@@ -46,6 +46,9 @@ fn build_llvmext(project_dir: &str) {
 }
 
 fn main() {
+    // Generate parser
+    lalrpop::process_root().unwrap();
+
     let ref project_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     // Build ID

@@ -22,3 +22,8 @@ num-integer = "0.1"
 regex = "0.1.71"
 time = "0.1.38"
 uuid = { version = "0.7.1", features = ["v4"] }
+lalrpop-util = "0.17.1"
+# regex = "0.2.0"
+
+[build-dependencies]
+lalrpop = "0.17.1"
