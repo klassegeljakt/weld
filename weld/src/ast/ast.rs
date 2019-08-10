@@ -44,6 +44,10 @@ impl Annotations {
         Annotations::default()
     }
 
+    pub fn from(values: Option<BTreeMap<String, String>>) -> Annotations {
+        Annotations { values }
+    }
+
     /// Set an annotation with key associated with value.
     ///
     /// The previous value for this key is returned if there was one.

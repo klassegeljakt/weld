@@ -200,7 +200,7 @@ pub fn tokenize(input: &str) -> WeldResult<Vec<Token>> {
     let mut tokens: Vec<Token> = Vec::new();
 
     for cap in TOKEN_RE.captures_iter(input) {
-        let text = cap.at(0).unwrap();
+        let text = cap.get(0).unwrap().as_str();
         if COMMENT_RE.is_match(text) {
             // Do nothing - skips the token.
         } else if KEYWORD_RE.is_match(text) {

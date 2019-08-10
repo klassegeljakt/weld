@@ -1,5 +1,6 @@
 use std::env;
 use std::process::Command;
+extern crate lalrpop;
 
 /// Write the build ID into an environment variable.
 fn register_build_id() {

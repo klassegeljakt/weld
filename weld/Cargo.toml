@@ -19,11 +19,11 @@ libc = "0.2.0"
 llvm-sys = "60.0.3"
 log = "0.3.8"
 num-integer = "0.1"
-regex = "0.1.71"
+# regex = "0.1.71"
 time = "0.1.38"
 uuid = { version = "0.7.1", features = ["v4"] }
 lalrpop-util = "0.17.1"
-# regex = "0.2.0"
+regex = "1.2.1"
 
 [build-dependencies]
 lalrpop = "0.17.1"

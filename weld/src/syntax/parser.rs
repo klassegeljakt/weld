@@ -3,6 +3,10 @@
 //! Weld is designed to be parseable in one left-to-right pass through the input, without
 //! backtracking, so we simply track a position as we go and keep incrementing it.
 
+use lalrpop_util::lalrpop_mod;
+
+lalrpop_mod!(pub grammar);
+
 use std::cmp::min;
 use std::vec::Vec;
 
@@ -49,47 +53,27 @@ macro_rules! check_parse_error {
 
 /// Parse the complete input string as a Weld program (optional macros plus one expression).
 pub fn parse_program(input: &str) -> WeldResult<Program> {
-    let tokens = tokenize(input)?;
-    let mut parser = Parser::new(&tokens);
-    let res = parser.program();
-
-    check_parse_error!(parser, res)
+    grammar::ProgramParser::new().parse(&input).map_err(|e| WeldCompileError::new(e.to_string()))
 }
 
 /// Parse the complete input string as a list of macros.
 pub fn parse_macros(input: &str) -> WeldResult<Vec<Macro>> {
-    let tokens = tokenize(input)?;
-    let mut parser = Parser::new(&tokens);
-    let res = parser.macros();
-
-    check_parse_error!(parser, res)
+    grammar::MacrosParser::new().parse(&input).map_err(|e| WeldCompileError::new(e.to_string()))
 }
 
 /// Parse the complete input string as a list of type aliases.
 pub fn parse_type_aliases(input: &str) -> WeldResult<Vec<TypeAlias>> {
-    let tokens = tokenize(input)?;
-    let mut parser = Parser::new(&tokens);
-    let res = parser.type_aliases();
-
-    check_parse_error!(parser, res)
+    grammar::TypeAliasesParser::new().parse(&input).map_err(|e| WeldCompileError::new(e.to_string()))
 }
 
 /// Parse the complete input string as an expression.
 pub fn parse_expr(input: &str) -> WeldResult<Expr> {
-    let tokens = tokenize(input)?;
-    let mut parser = Parser::new(&tokens);
-    let res = parser.expr().map(|b| *b);
-
-    check_parse_error!(parser, res)
+    grammar::ExprParser::new().parse(&input).map_err(|e| WeldCompileError::new(e.to_string()))
 }
 
 /// Parse the complete input string as a Type.
 pub fn parse_type(input: &str) -> WeldResult<Type> {
-    let tokens = tokenize(input)?;
-    let mut parser = Parser::new(&tokens);
-    let res = parser.type_();
-
-    check_parse_error!(parser, res)
+    grammar::TypeParser::new().parse(&input).map_err(|e| WeldCompileError::new(e.to_string()))
 }
 
 /// A stateful object that parses a sequence of tokens, tracking its position at each point.
