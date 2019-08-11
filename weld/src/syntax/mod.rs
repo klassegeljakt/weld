@@ -5,4 +5,3 @@
 pub mod macro_processor;
 pub mod parser;
 pub mod program;
-pub mod tokenizer;
