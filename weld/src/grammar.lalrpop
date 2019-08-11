@@ -3,6 +3,7 @@ use {
   crate::ast::*,
   crate::syntax::program::*,
   std::collections::BTreeMap,
+  lalrpop_util::ParseError,
 };
 
 grammar;
@@ -167,6 +168,16 @@ Single<T>: Vec<T> = {
 
 Box<T>: Box<T> = T => Box::new(<>);
 
+// Binary infix non-associative
+Binary<Op, Next>: Expr = {
+    <left:Box<Next>> <kind:Op> <right:Box<Next>> => Expr {
+        ty: Type::Unknown,
+        kind: ExprKind::BinOp {<>},
+        annotations: Annotations::new(),
+    },
+    Next,
+};
+
 // Binary infix left-associative
 BinaryLeft<Op, Next>: Expr = {
     <left:Box<BinaryLeft<Op, Next>>> <kind:Op> <right:Box<Next>> => Expr {
@@ -210,36 +221,37 @@ UnaryRight<Op, Next>: Expr = {
 // Terminals
 
 Ident: String = TIdent => <>.to_string();
-Index: u32    = TIndex => u32::from_str(&<>[2..]).unwrap();
+Index: u32    = TIndex =>? u32::from_str(&<>[2..]).map_err(|_| ParseError::InvalidToken{location:0});
 
-BoolLiteral:   bool   = TBool   => bool::from_str(<>).unwrap();
 StringLiteral: String = TString => <>.to_string();
 
-F32Literal: f32 = TF32Base10 => f32::from_str(&<>[..<>.len()-1]).unwrap();
-F64Literal: f64 = TF64Base10 => f64::from_str(<>).unwrap();
+BoolLiteral: bool = TBool =>? bool::from_str(<>).map_err(|_| ParseError::InvalidToken{location:0});
+
+F32Literal: f32 = TF32Base10 =>? f32::from_str(&<>[..<>.len()-1]).map_err(|_| ParseError::InvalidToken{location:0});
+F64Literal: f64 = TF64Base10 =>? f64::from_str(<>).map_err(|_| ParseError::InvalidToken{location:0});
 
 I8Literal: i8 = {
-    TI8Base10 => i8::from_str(&<>[..<>.len()-1]).unwrap(),
-    TI8Base2  => i8::from_str_radix(&<>[2..<>.len()-1], 2).unwrap(),
-    TI8Base16 => i8::from_str_radix(&<>[2..<>.len()-1], 16).unwrap(),
+    TI8Base10 =>? i8::from_str(&<>[..<>.len()-1]).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI8Base2  =>? i8::from_str_radix(&<>[2..<>.len()-1], 2).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI8Base16 =>? i8::from_str_radix(&<>[2..<>.len()-1], 16).map_err(|_| ParseError::InvalidToken{location:0}),
 };
 
 I16Literal: i16 = {
-    TI16Base10 => i16::from_str(&<>[..<>.len()-2]).unwrap(),
-    TI16Base2  => i16::from_str_radix(&<>[2..<>.len()-2], 2).unwrap(),
-    TI16Base16 => i16::from_str_radix(&<>[2..<>.len()-2], 16).unwrap(),
+    TI16Base10 =>? i16::from_str(&<>[..<>.len()-2]).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI16Base2  =>? i16::from_str_radix(&<>[2..<>.len()-2], 2).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI16Base16 =>? i16::from_str_radix(&<>[2..<>.len()-2], 16).map_err(|_| ParseError::InvalidToken{location:0}),
 };
 
 I32Literal: i32 = {
-    TI32Base10 => i32::from_str(<>).unwrap(),
-    TI32Base2  => i32::from_str_radix(&<>[2..], 2).unwrap(),
-    TI32Base16 => i32::from_str_radix(&<>[2..], 16).unwrap(),
+    TI32Base10 =>? i32::from_str(<>).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI32Base2  =>? i32::from_str_radix(&<>[2..], 2).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI32Base16 =>? i32::from_str_radix(&<>[2..], 16).map_err(|_| ParseError::InvalidToken{location:0}),
 };
 
 I64Literal: i64 = {
-    TI64Base10 => i64::from_str(&<>[..<>.len()-1]).unwrap(),
-    TI64Base2  => i64::from_str_radix(&<>[2..<>.len()-1], 2).unwrap(),
-    TI64Base16 => i64::from_str_radix(&<>[2..<>.len()-1], 16).unwrap(),
+    TI64Base10 =>? i64::from_str(&<>[..<>.len()-1]).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI64Base2  =>? i64::from_str_radix(&<>[2..<>.len()-1], 2).map_err(|_| ParseError::InvalidToken{location:0}),
+    TI64Base16 =>? i64::from_str_radix(&<>[2..<>.len()-1], 16).map_err(|_| ParseError::InvalidToken{location:0}),
 };
 
 // Nonterminals
@@ -248,7 +260,7 @@ pub Program: Program = <macros:Macro*> <type_aliases:TypeAlias*> <body:Expr> => 
 pub Macros = Macro*;
 pub TypeAliases = TypeAlias*;
 
-Macro: Macro = "macro" <name:Symbol> "(" <parameters:Vec<Symbol>> ")" "=" <body:ValueExpr> ";" => Macro {<>};
+Macro: Macro = "macro" <name:Symbol> "(" <parameters:Vec<Symbol>> ")" "=" <body:Expr> ";" => Macro {<>};
 
 TypeAlias: TypeAlias = "type" <name:Ident> "=" <ty:Type> ";" => TypeAlias {<>};
 
@@ -280,9 +292,19 @@ ValueExpr = {
 };
 
 LetExpr: Expr = {
-    "let" <name:Symbol> "=" <value:Box<Tier01>> ";" <body:Box<ValueExpr>> => Expr {
+    "let" <name:Symbol> <ty:(":" <Type>)?> "=" <value:Box<Tier01>> ";" <body:Box<ValueExpr>> => Expr {
         ty: Type::Unknown,
-        kind: ExprKind::Let {<>},
+        kind: ExprKind::Let {
+            name,
+            value: if let Some(ty) = ty {
+              let mut value = value;
+              value.ty = ty;
+              value
+            } else {
+              value
+            },
+            body
+        },
         annotations: Annotations::new(),
     },
 };
@@ -292,12 +314,13 @@ Tier02 = BinaryLeft<Op02, Tier03>;
 Tier03 = BinaryLeft<Op03, Tier04>;
 Tier04 = BinaryLeft<Op04, Tier05>;
 Tier05 = BinaryLeft<Op05, Tier06>;
-Tier06 = BinaryLeft<Op06, Tier07>;
-Tier07 = BinaryLeft<Op07, Tier08>;
+Tier06 = Binary<Op06, Tier07>;
+Tier07 = Binary<Op07, Tier08>;
 Tier08 = BinaryLeft<Op08, Tier09>;
-Tier09 = Prefix;
-Tier10 = Postfix;
-Tier11 = Primary;
+Tier09 = BinaryLeft<Op09, Tier10>;
+Tier10 = Prefix;
+Tier11 = Postfix;
+Tier12 = Primary;
 
 Op01: BinOpKind = {
     "||" => BinOpKind::LogicalOr,
@@ -309,31 +332,34 @@ Op02: BinOpKind = {
 
 Op03: BinOpKind = {
     "|" => BinOpKind::BitwiseOr,
-    "^" => BinOpKind::Xor,
 };
 
 Op04: BinOpKind = {
-    "&"  => BinOpKind::BitwiseAnd,
+    "^" => BinOpKind::Xor,
 };
 
 Op05: BinOpKind = {
+    "&"  => BinOpKind::BitwiseAnd,
+};
+
+Op06: BinOpKind = {
     "==" => BinOpKind::Equal,
     "!=" => BinOpKind::NotEqual,
 };
 
-Op06: BinOpKind = {
+Op07: BinOpKind = {
     "<"  => BinOpKind::LessThan,
-    ">=" => BinOpKind::LessThanOrEqual,
+    "<=" => BinOpKind::LessThanOrEqual,
     ">"  => BinOpKind::GreaterThan,
-    "<=" => BinOpKind::GreaterThanOrEqual,
+    ">=" => BinOpKind::GreaterThanOrEqual,
 };
 
-Op07: BinOpKind = {
+Op08: BinOpKind = {
     "+" => BinOpKind::Add,
     "-" => BinOpKind::Subtract,
 };
 
-Op08: BinOpKind = {
+Op09: BinOpKind = {
     "*" => BinOpKind::Multiply,
     "/" => BinOpKind::Divide,
     "%" => BinOpKind::Modulo,
@@ -380,7 +406,7 @@ Prefix: Expr = {
         annotations: Annotations::new(),
     },
     <values:Annotations?> <kind:BuilderKind> <arg:("(" <Box<ValueExpr>> ")")?> => Expr {
-        ty: Type::Builder(kind, Annotations::from(values.clone())),
+        ty: Type::Builder(kind, Annotations::new()),
         kind: ExprKind::NewBuilder(arg),
         annotations: Annotations::from(values),
     },
@@ -424,7 +450,6 @@ PrimaryKind: ExprKind = {
     "assert"      "(" <Box<ValueExpr>> ")"                                                                 => ExprKind::Assert(<>),
     "broadcast"   "(" <Box<ValueExpr>> ")"                                                                 => ExprKind::Broadcast(<>),
     "tovec"       "(" <child_expr:Box<ValueExpr>> ")"                                                      => ExprKind::ToVec {<>},
-    "zip"         "(" <vectors:Vec2<ValueExpr>> ")"                                                        => ExprKind::Zip {<>},
     "len"         "(" <data:Box<ValueExpr>> ")"                                                            => ExprKind::Length {<>},
     "lookup"      "(" <data:Box<ValueExpr>> "," <index:Box<ValueExpr>> ")"                                 => ExprKind::Lookup {<>},
     "optlookup"   "(" <data:Box<ValueExpr>> "," <index:Box<ValueExpr>> ")"                                 => ExprKind::OptLookup {<>},
@@ -437,7 +462,7 @@ PrimaryKind: ExprKind = {
     "cudf"        "[" <sym_name:Ident> "," <return_ty:Box<Type>> "]" "(" <args:Vec<ValueExpr>> ")"         => ExprKind::CUDF {<>},
     "serialize"   "(" <Box<ValueExpr>> ")"                                                                 => ExprKind::Serialize(<>),
     "deserialize" "[" <value_ty:Box<Type>> "]" "(" <value:Box<ValueExpr>> ")"                              => ExprKind::Deserialize {<>},
-    "for"         "(" <iters:Single<Iter>> "," <builder:Box<ValueExpr>> "," <func:Box<LambdaExpr>> ")"     => ExprKind::For {<>},
+    "for"         "(" <iters:Iters> "," <builder:Box<ValueExpr>> "," <func:Box<LambdaExpr>> ")"            => ExprKind::For {<>},
     "merge"       "(" <builder:Box<ValueExpr>> "," <value:Box<ValueExpr>> ")"                              => ExprKind::Merge {<>},
     "result"      "(" <builder:Box<ValueExpr>> ")"                                                         => ExprKind::Res {<>},
     "[" <elems:Vec<ValueExpr>> "]"                                                                         => ExprKind::MakeVector {<>},
@@ -456,6 +481,28 @@ SimdIter:   IterKind = "simditer"   => IterKind::SimdIter;
 FringeIter: IterKind = "fringeiter" => IterKind::FringeIter;
 NdIter:     IterKind = "nditer"     => IterKind::NdIter;
 RangeIter:  IterKind = "rangeiter"  => IterKind::RangeIter;
+
+Iters = {
+  "zip" "(" <Vec1<Iter>> ")",
+  Single<Iter>,
+};
+
+Iter = {
+    IterUnknown,
+
+    IterData<ScalarIter>,
+    IterData<SimdIter>,
+    IterData<FringeIter>,
+    IterData<NdIter>,
+
+    IterStartEndStride<RangeIter>,
+
+    IterDataStartEndStride<ScalarIter>,
+    IterDataStartEndStride<SimdIter>,
+    IterDataStartEndStride<FringeIter>,
+
+    IterDataStartEndStrideShapeStrides<NdIter>,
+};
 
 IterUnknown: Iter = {
     <data:Data> => Iter {
@@ -489,23 +536,6 @@ IterStartEndStride<Kind>: Iter = {
             annotations: Annotations::new(),
         }),
     },
-};
-
-Iter = {
-    IterUnknown,
-
-    IterData<ScalarIter>,
-    IterData<SimdIter>,
-    IterData<FringeIter>,
-    IterData<NdIter>,
-
-    IterStartEndStride<RangeIter>,
-
-    IterDataStartEndStride<ScalarIter>,
-    IterDataStartEndStride<SimdIter>,
-    IterDataStartEndStride<FringeIter>,
-
-    IterDataStartEndStrideShapeStrides<NdIter>,
 };
 
 LiteralKind: LiteralKind = {
@@ -568,6 +598,7 @@ AnnotationValue = {
     F32Literal  => <>.to_string(),
     F64Literal  => <>.to_string(),
     StringLiteral,
+    Ident,
 };
 
 Annotations: BTreeMap<String, String> = <values:("@" "(" <Vec<Annotation>> ")")> => values.into_iter().collect();
