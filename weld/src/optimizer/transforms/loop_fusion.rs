@@ -475,7 +475,6 @@ fn simple_horizontal_loop_fusion() {
         "for(result(for([1,2,3], appender, |b,i,e| merge(b, {e+1,e+1}))), \
          appender, |b,i,e| merge(b, e.$0+1))",
     );
-    println!("1");
     assert!(e1.compare_ignoring_symbols(&e2).unwrap());
 
     // Three loops.
@@ -491,7 +490,6 @@ fn simple_horizontal_loop_fusion() {
         "for(result(for([1,2,3], appender, |b,i,e| merge(b, \
          {e+1,e+2,e+3}))), appender, |b,i,e| merge(b, e.$0+1))",
     );
-    println!("2");
     assert!(e1.compare_ignoring_symbols(&e2).unwrap());
 
     // Iters in inner loop
@@ -506,7 +504,6 @@ fn simple_horizontal_loop_fusion() {
         "for(result(for(iter([1,2,3], 0L, 2L, 1L), appender, |b,i,e| \
          merge(b, {e+1,e+2}))), appender, |b,i,e| merge(b, e.$0+1))",
     );
-    println!("3");
     assert!(e1.compare_ignoring_symbols(&e2).unwrap());
 
     // Iters in outer loop.
@@ -521,7 +518,6 @@ fn simple_horizontal_loop_fusion() {
         "for(iter(result(for([1,2,3], appender, |b,i,e| merge(b, \
          {e+1,e+2}))), 0L, 2L, 1L), appender, |b,i,e| merge(b, e.$0+1))",
     );
-    println!("4");
     assert!(e1.compare_ignoring_symbols(&e2).unwrap());
 
     // Two loops with different vectors; should fail.
@@ -533,7 +529,6 @@ fn simple_horizontal_loop_fusion() {
     );
     let e2 = e1.clone();
     fuse_loops_horizontal(&mut e1);
-    println!("5");
     assert!(e1.compare_ignoring_symbols(&e2).unwrap());
 }
 
@@ -546,7 +541,6 @@ fn simple_vertical_loop_fusion() {
     );
     fuse_loops_vertical(&mut e1);
     let e2 = typed_expression("for([1,2,3], appender, |b,i,e| merge(b, (e+2)+1))");
-    println!("{}", print_expr_without_indent(&e1));
     assert!(e1.compare_ignoring_symbols(&e2).unwrap());
 
     // Three loops.
