@@ -135,41 +135,12 @@ match { // Keywords
 
 // Macros
 
-Vec<T>: Vec<T> = {
-    <vec:(<T> ",")*> <last:T?> => match last {
-        None => vec,
-        Some(last) => {
-            let mut vec = vec;
-            vec.push(last);
-            vec
-        },
-    },
-};
-
-Vec1<T>: Vec<T> = {
-    <head:T> <tail:("," <T>)*> => {
-      let mut vec = vec![head];
-      vec.extend(tail);
-      vec
-    },
-};
-
-Vec2<T>: Vec<T> = {
-    <head:(<T> "," <T>)> <tail:("," <T>)*> => {
-      let mut vec = vec![head.0, head.1];
-      vec.extend(tail);
-      vec
-    },
-};
-
-Single<T>: Vec<T> = {
-    T => vec![<>]
-};
-
+Vec<T>: Vec<T> = <v:(<T> ",")*> <e:T?> => v.into_iter().chain(e).collect();
+NonEmptyVec<T>: Vec<T> = <e:T> <v:("," <T>)*> => vec![e].into_iter().chain(v).collect()
+Single<T>: Vec<T> = T => vec![<>];
 Box<T>: Box<T> = T => Box::new(<>);
 
-// Binary infix non-associative
-Binary<Op, Next>: Expr = {
+BinaryNonAssociative<Op, Next>: Expr = {
     <left:Box<Next>> <kind:Op> <right:Box<Next>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::BinOp {<>},
@@ -178,9 +149,8 @@ Binary<Op, Next>: Expr = {
     Next,
 };
 
-// Binary infix left-associative
-BinaryLeft<Op, Next>: Expr = {
-    <left:Box<BinaryLeft<Op, Next>>> <kind:Op> <right:Box<Next>> => Expr {
+BinaryLeftAssociative<Op, Next>: Expr = {
+    <left:Box<BinaryLeftAssociative<Op, Next>>> <kind:Op> <right:Box<Next>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::BinOp {<>},
         annotations: Annotations::new(),
@@ -188,31 +158,10 @@ BinaryLeft<Op, Next>: Expr = {
     Next,
 };
 
-// Binary infix right-associative
-BinaryRight<Op, Next>: Expr = {
-    <left:Box<Next>> <kind:Op> <right:Box<BinaryRight<Op, Next>>> => Expr {
+BinaryRightAssociative<Op, Next>: Expr = {
+    <left:Box<Next>> <kind:Op> <right:Box<BinaryRightAssociative<Op, Next>>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::BinOp {<>},
-        annotations: Annotations::new(),
-    },
-    Next,
-};
-
-// Unary postfix left-associative
-UnaryLeft<Op, Next>: Expr = {
-    <value:Box<UnaryLeft<Op, Next>>> <kind:Op> => Expr {
-        ty: Type::Unknown,
-        kind: ExprKind::Unary {<>},
-        annotations: Annotations::new(),
-    },
-    Next,
-};
-
-// Unary prefix right-associative
-UnaryRight<Op, Next>: Expr = {
-    <kind:Op> <value:Box<UnaryRight<Op, Next>>> => Expr {
-        ty: Type::Unknown,
-        kind: ExprKind::Unary {<>},
         annotations: Annotations::new(),
     },
     Next,
@@ -266,10 +215,7 @@ TypeAlias: TypeAlias = "type" <name:Ident> "=" <ty:Type> ";" => TypeAlias {<>};
 
 Symbol: Symbol = <Ident> => Symbol::new(<>, 0);
 
-pub Expr = {
-    LambdaExpr,
-    ValueExpr,
-};
+pub Expr = { LambdaExpr, ValueExpr };
 
 LambdaExpr: Expr = {
     "||" <body:Box<ValueExpr>> => Expr {
@@ -277,7 +223,7 @@ LambdaExpr: Expr = {
         kind: ExprKind::Lambda { params: Vec::new(), body },
         annotations: Annotations::new(),
     },
-    "|" <params:Vec1<Parameter>> "|" <body:Box<ValueExpr>> => Expr {
+    "|" <params:NonEmptyVec<Parameter>> "|" <body:Box<ValueExpr>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Lambda { params, body },
         annotations: Annotations::new(),
@@ -308,19 +254,6 @@ LetExpr: Expr = {
         annotations: Annotations::new(),
     },
 };
-
-Tier01 = BinaryLeft<Op01, Tier02>;
-Tier02 = BinaryLeft<Op02, Tier03>;
-Tier03 = BinaryLeft<Op03, Tier04>;
-Tier04 = BinaryLeft<Op04, Tier05>;
-Tier05 = BinaryLeft<Op05, Tier06>;
-Tier06 = Binary<Op06, Tier07>;
-Tier07 = Binary<Op07, Tier08>;
-Tier08 = BinaryLeft<Op08, Tier09>;
-Tier09 = BinaryLeft<Op09, Tier10>;
-Tier10 = Prefix;
-Tier11 = Postfix;
-Tier12 = Primary;
 
 Op01: BinOpKind = {
     "||" => BinOpKind::LogicalOr,
@@ -394,13 +327,23 @@ CommutativeBinOpKind: BinOpKind = {
     "min" => BinOpKind::Min,
 };
 
-Prefix: Expr = {
-    "!" <Box<Prefix>> => Expr {
+Tier01 = BinaryLeftAssociative<Op01, Tier02>;
+Tier02 = BinaryLeftAssociative<Op02, Tier03>;
+Tier03 = BinaryLeftAssociative<Op03, Tier04>;
+Tier04 = BinaryLeftAssociative<Op04, Tier05>;
+Tier05 = BinaryLeftAssociative<Op05, Tier06>;
+Tier06 = BinaryNonAssociative<Op06, Tier07>;
+Tier07 = BinaryNonAssociative<Op07, Tier08>;
+Tier08 = BinaryLeftAssociative<Op08, Tier09>;
+Tier09 = BinaryLeftAssociative<Op09, Tier10>;
+
+Tier10: Expr = {
+    "!" <Box<Tier10>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Not(<>),
         annotations: Annotations::new(),
     },
-    "-" <Box<Prefix>> => Expr {
+    "-" <Box<Tier10>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Negate(<>),
         annotations: Annotations::new(),
@@ -410,21 +353,21 @@ Prefix: Expr = {
         kind: ExprKind::NewBuilder(arg),
         annotations: Annotations::from(values),
     },
-    Postfix,
+    Tier11,
 };
 
-Postfix: Expr = {
-    <func:Box<Postfix>> "(" <params:Vec<Expr>> ")" => Expr {
+Tier11: Expr = {
+    <func:Box<Tier11>> "(" <params:Vec<Expr>> ")" => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Apply {<>},
         annotations: Annotations::new(),
     },
-    <expr:Box<Postfix>> <index:Index> => Expr {
+    <expr:Box<Tier11>> <index:Index> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::GetField {<>},
         annotations: Annotations::new(),
     },
-    <expr:Postfix> ":" <ty:Type> => {
+    <expr:Tier11> ":" <ty:Type> => {
         let mut expr = expr;
         expr.ty = ty;
         expr
@@ -483,8 +426,8 @@ NdIter:     IterKind = "nditer"     => IterKind::NdIter;
 RangeIter:  IterKind = "rangeiter"  => IterKind::RangeIter;
 
 Iters = {
-  "zip" "(" <Vec1<Iter>> ")",
-  Single<Iter>,
+    "zip" "(" <NonEmptyVec<Iter>> ")",
+    Single<Iter>,
 };
 
 Iter = {
@@ -557,7 +500,7 @@ pub Type: Type = {
     "dict" "[" <Box<Type>> "," <Box<Type>> "]"      => Type::Dict(<>),
     "{" <Vec<Type>> "}"                             => Type::Struct(<>),
     "||" "(" <Box<Type>> ")"                        => Type::Function(Vec::new(), <>),
-    "|" <Vec1<Type>> "|" "(" <Box<Type>> ")"        => Type::Function(<>),
+    "|" <NonEmptyVec<Type>> "|" "(" <Box<Type>> ")" => Type::Function(<>),
     Ident                                           => Type::Alias(<>, Box::new(Type::Unknown)),
     "?"                                             => Type::Unknown,
 };
@@ -577,7 +520,7 @@ ScalarKind: ScalarKind = {
 };
 
 BuilderKind: BuilderKind = {
-    "appender"    <ty:("[" <Box<Type>> "]")?>                                         => BuilderKind::Appender(<>.unwrap_or(Box::new(Type::Unknown))),
+    "appender"       <("[" <Box<Type>> "]")?>                                         => BuilderKind::Appender(<>.unwrap_or(Box::new(Type::Unknown))),
     "merger"           "[" <Box<Type>> "," <CommutativeBinOpKind> "]"                 => BuilderKind::Merger(<>),
     "dictmerger"       "[" <Box<Type>> "," <Box<Type>> "," <CommutativeBinOpKind> "]" => BuilderKind::DictMerger(<>),
     "vecmerger"        "[" <Box<Type>> "," <CommutativeBinOpKind> "]"                 => BuilderKind::VecMerger(<>),
