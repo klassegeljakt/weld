@@ -1,8 +1,12 @@
 use {
-  std::str::FromStr,
-  crate::ast::*,
-  crate::syntax::program::*,
-  std::collections::BTreeMap,
+  std::{
+    str::FromStr,
+    collections::BTreeMap,
+  },
+  crate::{
+    ast::*,
+    syntax::program::*,
+  },
   lalrpop_util::ParseError,
 };
 
@@ -215,7 +219,10 @@ TypeAlias: TypeAlias = "type" <name:Ident> "=" <ty:Type> ";" => TypeAlias {<>};
 
 Symbol: Symbol = <Ident> => Symbol::new(<>, 0);
 
-pub Expr = { LambdaExpr, ValueExpr };
+pub Expr = {
+    LambdaExpr,
+    ValueExpr,
+};
 
 LambdaExpr: Expr = {
     "||" <body:Box<ValueExpr>> => Expr {
@@ -234,11 +241,11 @@ Parameter: Parameter = <name:Symbol> <ty:(":" <Type>)?> => Parameter { name, ty:
 
 ValueExpr = {
     LetExpr,
-    Tier01,
+    Expr01,
 };
 
 LetExpr: Expr = {
-    "let" <name:Symbol> <ty:(":" <Type>)?> "=" <value:Box<Tier01>> ";" <body:Box<ValueExpr>> => Expr {
+    "let" <name:Symbol> <ty:(":" <Type>)?> "=" <value:Box<Expr01>> ";" <body:Box<ValueExpr>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Let {
             name,
@@ -327,23 +334,23 @@ CommutativeBinOpKind: BinOpKind = {
     "min" => BinOpKind::Min,
 };
 
-Tier01 = BinaryLeftAssociative<Op01, Tier02>;
-Tier02 = BinaryLeftAssociative<Op02, Tier03>;
-Tier03 = BinaryLeftAssociative<Op03, Tier04>;
-Tier04 = BinaryLeftAssociative<Op04, Tier05>;
-Tier05 = BinaryLeftAssociative<Op05, Tier06>;
-Tier06 = BinaryNonAssociative<Op06, Tier07>;
-Tier07 = BinaryNonAssociative<Op07, Tier08>;
-Tier08 = BinaryLeftAssociative<Op08, Tier09>;
-Tier09 = BinaryLeftAssociative<Op09, Tier10>;
+Expr01 = BinaryLeftAssociative<Op01, Expr02>;
+Expr02 = BinaryLeftAssociative<Op02, Expr03>;
+Expr03 = BinaryLeftAssociative<Op03, Expr04>;
+Expr04 = BinaryLeftAssociative<Op04, Expr05>;
+Expr05 = BinaryLeftAssociative<Op05, Expr06>;
+Expr06 = BinaryNonAssociative<Op06, Expr07>;
+Expr07 = BinaryNonAssociative<Op07, Expr08>;
+Expr08 = BinaryLeftAssociative<Op08, Expr09>;
+Expr09 = BinaryLeftAssociative<Op09, Expr10>;
 
-Tier10: Expr = {
-    "!" <Box<Tier10>> => Expr {
+Expr10: Expr = {
+    "!" <Box<Expr10>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Not(<>),
         annotations: Annotations::new(),
     },
-    "-" <Box<Tier10>> => Expr {
+    "-" <Box<Expr10>> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Negate(<>),
         annotations: Annotations::new(),
@@ -353,21 +360,21 @@ Tier10: Expr = {
         kind: ExprKind::NewBuilder(arg),
         annotations: Annotations::from(values),
     },
-    Tier11,
+    Expr11,
 };
 
-Tier11: Expr = {
-    <func:Box<Tier11>> "(" <params:Vec<Expr>> ")" => Expr {
+Expr11: Expr = {
+    <func:Box<Expr11>> "(" <params:Vec<Expr>> ")" => Expr {
         ty: Type::Unknown,
         kind: ExprKind::Apply {<>},
         annotations: Annotations::new(),
     },
-    <expr:Box<Tier11>> <index:Index> => Expr {
+    <expr:Box<Expr11>> <index:Index> => Expr {
         ty: Type::Unknown,
         kind: ExprKind::GetField {<>},
         annotations: Annotations::new(),
     },
-    <expr:Tier11> ":" <ty:Type> => {
+    <expr:Expr11> ":" <ty:Type> => {
         let mut expr = expr;
         expr.ty = ty;
         expr
