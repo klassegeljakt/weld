@@ -102,7 +102,7 @@ cargo test
 
 ## Documentation
 
-The [Rust Weld crate](https://crates.io/crates/weld) is documented [here](https://www.weld.rs/docs/weld/).
+The [Rust Weld crate](https://crates.io/crates/weld) is documented [here](https://www.weld.rs/docs/latest/weld/).
 
 The `docs/` directory contains documentation for the different components of Weld.
 
@@ -136,9 +136,3 @@ This repository contains a number of useful command line tools which are built
 automatically with the main Weld repository, including an interactive REPL for
 inspecting and debugging programs.  More information on those tools can be
 found under [docs/tools.md](https://github.com/weld-project/weld/tree/master/docs/tools.md).
-
-## LLVM ST Unsupported Features
-On top of multi-threading support, this backend currently lacks a few minor features:
-
-* The `NdIter` iterator
-* Vector keys in dictionaries where the vector contain pointers.
