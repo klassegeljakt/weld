@@ -140,7 +140,7 @@ match { // Keywords
 // Macros
 
 Vec<T>: Vec<T> = <v:(<T> ",")*> <e:T?> => v.into_iter().chain(e).collect();
-NonEmptyVec<T>: Vec<T> = <e:T> <v:("," <T>)*> => vec![e].into_iter().chain(v).collect()
+NonEmptyVec<T>: Vec<T> = <e:T> <v:("," <T>)*> => vec![e].into_iter().chain(v).collect();
 Single<T>: Vec<T> = T => vec![<>];
 Box<T>: Box<T> = T => Box::new(<>);
 
